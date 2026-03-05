@@ -58,7 +58,7 @@ javadoc {
 publishing {
     repositories {
         maven {
-            url 'http://domain.com/releases'
+            url 'https://maven.outlands.top/releases'
             credentials {
                 username = project.findProperty('username')
                 password = project.findProperty('password')
