@@ -1,7 +1,6 @@
 plugins {
     id 'java-library'
     id 'maven-publish'
-    id 'signing'
 }
 
 java {
@@ -12,109 +11,84 @@ java {
     withJavadocJar()
 }
 
-group "io.codechicken"
-version = '4.0.0'
-archivesBaseName = 'ChickenASM'
+group 'codechicken'
+version = '4.0.1'
+base {
+    archivesName = 'ChickenASM'
+}
 
-version = "$version." + (System.getenv("BUILD_NUMBER") ?: "1")
+def projectName = 'ChickenASM'
+
 println "Starting build of ${name}, Version: ${version}"
 
 repositories {
-    mavenLocal()
-    jcenter()
     mavenCentral()
-    maven { url "https://maven.covers1624.net/" }
+    mavenLocal()
 }
 
 dependencies {
-    api 'org.slf4j:slf4j-api:1.7.36'
+    api 'org.slf4j:slf4j-api:2.0.17'
 
-    api 'org.ow2.asm:asm:9.2'
-    api 'org.ow2.asm:asm-tree:9.2'
-    api 'org.ow2.asm:asm-commons:9.2'
-    api 'org.ow2.asm:asm-util:9.2'
+    api 'org.ow2.asm:asm:9.9.1'
+    api 'org.ow2.asm:asm-tree:9.9.1'
+    api 'org.ow2.asm:asm-commons:9.9.1'
+    api 'org.ow2.asm:asm-util:9.9.1'
 
     compileOnly 'com.google.code.findbugs:jsr305:3.0.2'
-    compileOnly 'org.jetbrains:annotations:22.0.0'
+    compileOnly 'org.jetbrains:annotations:26.1.0'
 }
 
 jar {
     manifest {
         attributes 'FMLModType': 'GAMELIBRARY'
-        attributes 'Specification-Title': archivesBaseName
+        attributes 'Specification-Title': projectName
         attributes 'Specification-Vendor': 'covers1624'
-        attributes 'Specification-Version': "1"
-        attributes 'Implementation-Title': archivesBaseName
+        attributes 'Specification-Version': '1'
+        attributes 'Implementation-Title': projectName
         attributes 'Implementation-Vendor': 'covers1624'
         attributes 'Implementation-Version': archiveVersion
         attributes 'Implementation-Timestamp': new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
     }
 }
 
-tasks.register('signJar') {
-    dependsOn('jar')
-
-    doFirst {
-        def args = [:]
-        args['jar'] = jar.archiveFile.get().asFile
-        if (System.getenv("KEY_STORE")) {
-            args['keyStore'] = System.getenv("KEY_STORE")
-            file(System.getenv("KEY_STORE_PROPS")).withReader {
-                def props = new Properties()
-                props.load(it)
-                args.putAll(props)
-            }
-        } else if (project.hasProperty('keyStore')) {
-            args['keyStore'] = project.getProperty('keyStore')
-            args['alias'] = project.getProperty('keyStoreAlias')
-            args['storePass'] = project.getProperty('keyStorePass')
-            args['keyPass'] = project.getProperty('keyStoreKeyPass')
-        } else {
-            println "No signing properties."
-            state.setOutcome(org.gradle.api.internal.tasks.TaskExecutionOutcome.UP_TO_DATE)
-            didWork = false
-            return
-        }
-        project.ant.invokeMethod('signjar', args)
-    }
-}
-
 javadoc {
-    options.addBooleanOption("Xdoclint:none", true)
+    options.addBooleanOption('Xdoclint:none', true)
 }
 
 publishing {
     repositories {
-        if (System.getenv('MAVEN_PASS')) {
-            maven {
-                url "https://nexus.covers1624.net/repository/maven-releases/"
-                credentials {
-                    username 'covers1624'
-                    password System.getenv('MAVEN_PASS')
-                }
+        maven {
+            url 'http://domain.com/releases'
+            credentials {
+                username = project.findProperty('username')
+                password = project.findProperty('password')
+            }
+            authentication {
+                basic(BasicAuthentication)
             }
         }
+
     }
     publications {
         ChickenASM(MavenPublication) {
             group = rootProject.group
             version = rootProject.version
-            artifactId archivesBaseName
+            artifactId = projectName
             from components['java']
 
             pom {
-                name = archivesBaseName
-                description = archivesBaseName
-                url = "https://github.com/TheCBProject/${archivesBaseName}"
+                name = projectName
+                description = projectName
+                url = "https://github.com/kappa-maintainer/${projectName}"
                 scm {
-                    url = "https://github.com/TheCBProject/${archivesBaseName}"
-                    connection = "scm:git:git://github.com/TheCBProject/${archivesBaseName}.git"
-                    connection = "scm:git:git@github.com:TheCBProject/${archivesBaseName}.git"
+                    url = "https://github.com/kappa-maintainer/${projectName}"
+                    connection = "scm:git:git://github.com/kappa-maintainer/${projectName}.git"
+                    developerConnection = "scm:git:git@github.com:kappa-maintainer/${projectName}.git"
                 }
 
                 issueManagement {
                     system = 'github'
-                    url = "https://github.com/TheCBProject/${archivesBaseName}/issues"
+                    url = "https://github.com/kappa-maintainer/${projectName}/issues"
                 }
                 licenses {
                     license {
@@ -138,21 +112,4 @@ publishing {
             }
         }
     }
-}
-
-signing {
-    if (System.getenv('GPG_PRIVATE_KEY')) {
-        useInMemoryPgpKeys(
-                new File(System.getenv('GPG_PRIVATE_KEY')).text,
-                System.getenv('GPG_PRIVATE_KEY_PASS')
-        )
-    } else if (project.hasProperty('gpgPrivateKey')) {
-        useInMemoryPgpKeys(
-                new File(project.getProperty('gpgPrivateKey')).text,
-                project.getProperty('gpgPrivateKeyPass')
-        )
-    } else {
-        return
-    }
-    sign publishing.publications.ChickenASM
 }
